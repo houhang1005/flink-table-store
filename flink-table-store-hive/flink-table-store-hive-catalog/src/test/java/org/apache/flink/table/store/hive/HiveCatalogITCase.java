@@ -231,6 +231,33 @@ public class HiveCatalogITCase {
     }
 
     @Test
+    public void testCreateExternalTable() throws Exception {
+        tEnv.executeSql(
+                        String.join(
+                                "\n",
+                                "CREATE CATALOG my_hive_external WITH (",
+                                "  'type' = 'table-store',",
+                                "  'metastore' = 'hive',",
+                                "  'uri' = '',",
+                                "  'warehouse' = '" + path + "',",
+                                "  'lock.enabled' = 'true',",
+                                "  'table.type' = 'EXTERNAL'",
+                                ")"))
+                .await();
+        tEnv.executeSql("USE CATALOG my_hive_external").await();
+        tEnv.executeSql("USE test_db").await();
+        tEnv.executeSql("CREATE TABLE T ( a INT, b STRING ) WITH ( 'file.format' = 'avro' )")
+                .await();
+        Assert.assertTrue(
+                hiveShell
+                        .executeQuery("DESC FORMATTED t")
+                        .contains("Table Type:         \tEXTERNAL_TABLE      \tNULL"));
+        tEnv.executeSql("DROP TABLE T").await();
+        Path tablePath = new Path(path, "test_db.db/T");
+        Assert.assertTrue(tablePath.getFileSystem().exists(tablePath));
+    }
+
+    @Test
     public void testFlinkWriteAndHiveRead() throws Exception {
         tEnv.executeSql("CREATE TABLE T ( a INT, b STRING ) WITH ( 'file.format' = 'avro' )")
                 .await();
